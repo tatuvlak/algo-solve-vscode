@@ -1,0 +1,92 @@
+{
+  "name": "algo-solve-vscode",
+  "displayName": "Ollama Algorithm Solver",
+  "description": "Solve algorithmic tasks using local Ollama models",
+  "version": "0.1.0",
+  "publisher": "tatuvlak",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onCommand:algoSolve.solve"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "algoSolve.solve",
+        "title": "Solve Algorithm with Ollama"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "algoSolve.solve",
+        "key": "ctrl+shift+s",
+        "mac": "cmd+shift+s",
+        "when": "editorTextFocus"
+      }
+    ],
+    "configuration": {
+      "title": "Ollama Algorithm Solver",
+      "properties": {
+        "algoSolve.destinationDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "Directory where solutions will be saved (empty = current working directory)"
+        },
+        "algoSolve.programmingLanguage": {
+          "type": "string",
+          "default": "python",
+          "description": "Target programming language for solutions"
+        },
+        "algoSolve.ollamaModel": {
+          "type": "string",
+          "default": "codellama",
+          "description": "Ollama model to use for code generation"
+        },
+        "algoSolve.ollamaEndpoint": {
+          "type": "string",
+          "default": "http://localhost:11434",
+          "description": "Ollama API endpoint"
+        },
+        "algoSolve.prompt": {
+          "type": "string",
+          "default": "You are an expert algorithm solver. Analyze the following problem description and provide a complete, working solution in {language}.\n\nProblem:\n{content}\n\nRequirements:\n- Provide clean, well-commented code\n- Include proper error handling\n- Optimize for time and space complexity where possible\n- Return only the code implementation\n\nSolution:",
+          "description": "Prompt template (use {language} and {content} placeholders)"
+        },
+        "algoSolve.requestTimeout": {
+          "type": "number",
+          "default": 60000,
+          "description": "Request timeout in milliseconds (default: 60000)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "lint": "eslint src --ext ts",
+    "test": "npx mocha --ui tdd out/test/suite/promptBuilder.test.js out/test/suite/fileService.test.js",
+    "test:vscode": "node ./out/test/runTest.js"
+  },
+  "overrides": {
+    "serialize-javascript": ">=7.0.3"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.6",
+    "@types/node": "20.x",
+    "@types/sinon": "^17.0.3",
+    "@types/vscode": "^1.80.0",
+    "@typescript-eslint/eslint-plugin": "^7.11.0",
+    "@typescript-eslint/parser": "^7.11.0",
+    "@vscode/test-electron": "^2.4.0",
+    "eslint": "^8.57.0",
+    "mocha": "^11.7.5",
+    "sinon": "^18.0.0",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "axios": "^1.7.2"
+  }
+}
