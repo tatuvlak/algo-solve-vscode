@@ -27,7 +27,9 @@ function createMockFunction<TArgs extends unknown[] = unknown[], TResult = unkno
   return mock;
 }
 
-function loadSolveAlgorithmModule(mocks: Record<string, unknown>): typeof import('../../commands/solveAlgorithm') {
+function loadMockedSolveAlgorithmModule(
+  mocks: Record<string, unknown>
+): typeof import('../../commands/solveAlgorithm') {
   const modulePath = require.resolve('../../commands/solveAlgorithm');
   const moduleLoader = Module as unknown as PatchedModuleLoader;
   const originalLoad = moduleLoader._load;
@@ -86,7 +88,7 @@ suite('solveAlgorithm', () => {
     const log = createMockFunction<[string], void>();
     const logError = createMockFunction<[string, unknown], void>();
 
-    const { solveAlgorithm } = loadSolveAlgorithmModule({
+    const { solveAlgorithm } = loadMockedSolveAlgorithmModule({
       vscode: {
         window: {
           activeTextEditor: {
@@ -99,7 +101,6 @@ suite('solveAlgorithm', () => {
           showWarningMessage,
           showErrorMessage,
           withProgress,
-          ProgressLocation: undefined,
         },
         workspace: {
           workspaceFolders: [{ uri: { fsPath: '/workspace' } }],
@@ -172,7 +173,7 @@ suite('solveAlgorithm', () => {
     const log = createMockFunction<[string], void>();
     const logError = createMockFunction<[string, unknown], void>();
 
-    const { solveAlgorithm } = loadSolveAlgorithmModule({
+    const { solveAlgorithm } = loadMockedSolveAlgorithmModule({
       vscode: {
         window: {
           activeTextEditor: {

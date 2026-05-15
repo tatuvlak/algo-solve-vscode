@@ -6,7 +6,7 @@ import { queryOllama } from '../services/ollamaService';
 import { buildPrompt } from '../utils/promptBuilder';
 import { log, logError } from '../utils/logger';
 
-type ProgressReporter = Pick<vscode.Progress<{ message?: string; increment?: number }>, 'report'>;
+type ProgressHandle = Pick<vscode.Progress<{ message?: string; increment?: number }>, 'report'>;
 
 function getErrorMessage(err: unknown): string {
   if (err instanceof Error) {
@@ -27,7 +27,7 @@ function getNotificationErrorMessage(err: unknown): string {
   return `Algo Solve: ${message}`;
 }
 
-async function showWarningIfNeeded(showNotifications: boolean, message: string): Promise<void> {
+async function handleWarningMessage(showNotifications: boolean, message: string): Promise<void> {
   log(message);
 
   if (showNotifications) {
@@ -35,18 +35,18 @@ async function showWarningIfNeeded(showNotifications: boolean, message: string):
   }
 }
 
-async function runSolve(config: ReturnType<typeof getConfiguration>, progress?: ProgressReporter): Promise<void> {
+async function runSolve(config: ReturnType<typeof getConfiguration>, progress?: ProgressHandle): Promise<void> {
   progress?.report({ message: 'Reading active editor content...' });
 
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
-    await showWarningIfNeeded(config.showNotifications, 'No active editor found. Open a file first.');
+    await handleWarningMessage(config.showNotifications, 'No active editor found. Open a file first.');
     return;
   }
 
   const content = editor.document.getText().trim();
   if (!content) {
-    await showWarningIfNeeded(config.showNotifications, 'The active file is empty. Add problem content first.');
+    await handleWarningMessage(config.showNotifications, 'The active file is empty. Add problem content first.');
     return;
   }
 
