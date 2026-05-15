@@ -57,6 +57,11 @@
           "type": "number",
           "default": 60000,
           "description": "Request timeout in milliseconds (default: 60000)"
+        },
+        "algoSolve.showNotifications": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, show a progress notification and error messages while solving. If false (default), run silently and log errors only."
         }
       }
     }
@@ -67,7 +72,7 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile",
     "lint": "eslint src --ext ts",
-    "test": "npx mocha --ui tdd out/test/suite/promptBuilder.test.js out/test/suite/fileService.test.js",
+    "test": "npx mocha --ui tdd out/test/suite/*.test.js",
     "test:vscode": "node ./out/test/runTest.js"
   },
   "overrides": {
