@@ -1,6 +1,10 @@
 import * as assert from 'assert';
 import Module = require('module');
 
+interface PatchedModuleLoader {
+  _load(request: string, parent: NodeModule | null | undefined, isMain: boolean): unknown;
+}
+
 interface MockCall<T extends unknown[] = unknown[]> {
   args: T;
 }
@@ -25,11 +29,16 @@ function createMockFunction<TArgs extends unknown[] = unknown[], TResult = unkno
 
 function loadSolveAlgorithmModule(mocks: Record<string, unknown>): typeof import('../../commands/solveAlgorithm') {
   const modulePath = require.resolve('../../commands/solveAlgorithm');
-  const originalLoad = Module._load;
+  const moduleLoader = Module as unknown as PatchedModuleLoader;
+  const originalLoad = moduleLoader._load;
 
   delete require.cache[modulePath];
 
-  Module._load = function patchedLoad(request, parent, isMain) {
+  moduleLoader._load = function patchedLoad(
+    request: string,
+    parent: NodeModule | null | undefined,
+    isMain: boolean
+  ) {
     if (request === 'vscode') {
       return mocks.vscode;
     }
@@ -55,7 +64,7 @@ function loadSolveAlgorithmModule(mocks: Record<string, unknown>): typeof import
   try {
     return require(modulePath) as typeof import('../../commands/solveAlgorithm');
   } finally {
-    Module._load = originalLoad;
+    moduleLoader._load = originalLoad;
   }
 }
 
