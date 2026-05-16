@@ -6,55 +6,101 @@ import { queryOllama } from '../services/ollamaService';
 import { buildPrompt } from '../utils/promptBuilder';
 import { log, logError } from '../utils/logger';
 
-export async function solveAlgorithm(): Promise<void> {
+type ProgressHandle = Pick<vscode.Progress<{ message?: string; increment?: number }>, 'report'>;
+
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) {
+    return err.message;
+  }
+
+  return String(err);
+}
+
+function getNotificationErrorMessage(err: unknown): string {
+  const message = getErrorMessage(err);
+  const httpErrorMatch = message.match(/^Ollama request failed \(HTTP (\d+)\)/);
+
+  if (httpErrorMatch) {
+    return `Algo Solve: Ollama request failed (HTTP ${httpErrorMatch[1]})`;
+  }
+
+  return `Algo Solve: ${message}`;
+}
+
+async function handleWarningMessage(showNotifications: boolean, message: string): Promise<void> {
+  log(message);
+
+  if (showNotifications) {
+    await vscode.window.showWarningMessage(`Algo Solve: ${message}`);
+  }
+}
+
+async function runSolve(config: ReturnType<typeof getConfiguration>, progress?: ProgressHandle): Promise<void> {
+  progress?.report({ message: 'Reading active editor content...' });
+
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
-    vscode.window.showWarningMessage('Algo Solve: No active editor found. Open a file first.');
+    await handleWarningMessage(config.showNotifications, 'No active editor found. Open a file first.');
     return;
   }
 
   const content = editor.document.getText().trim();
   if (!content) {
-    vscode.window.showWarningMessage('Algo Solve: The active file is empty. Add problem content first.');
+    await handleWarningMessage(config.showNotifications, 'The active file is empty. Add problem content first.');
     return;
   }
 
-  const config = getConfiguration();
+  progress?.report({ message: 'Building prompt...' });
   const prompt = buildPrompt(config.prompt, config.programmingLanguage, content);
+
+  progress?.report({ message: 'Calling Ollama HTTP API...' });
+  const solution = await queryOllama(
+    config.ollamaEndpoint,
+    config.ollamaModel,
+    prompt,
+    config.requestTimeout
+  );
+
+  progress?.report({ message: 'Writing solution file...' });
+  const activeFilePath = editor.document.fileName;
+  const baseName = path.basename(activeFilePath, path.extname(activeFilePath)) || 'solution';
+  const filename = generateFilename(baseName, config.programmingLanguage);
+
+  const fallbackDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+  const destDir = resolveDestinationDirectory(config.destinationDirectory, fallbackDir);
+
+  const savedPath = saveToFile(destDir, filename, solution);
+
+  if (config.showNotifications) {
+    await vscode.window.showInformationMessage(`Algo Solve: solution saved to ${savedPath}`);
+  }
+}
+
+export async function solveAlgorithm(): Promise<void> {
+  const config = getConfiguration();
 
   log('Starting algorithm solve command');
   log(`Language: ${config.programmingLanguage}, Model: ${config.ollamaModel}`);
 
-  await vscode.window.withProgress(
-    {
-      location: vscode.ProgressLocation.Notification,
-      title: `Solving with Ollama (${config.ollamaModel})…`,
-      cancellable: false,
-    },
-    async () => {
-      try {
-        const solution = await queryOllama(
-          config.ollamaEndpoint,
-          config.ollamaModel,
-          prompt,
-          config.requestTimeout
-        );
-
-        const activeFilePath = editor.document.fileName;
-        const baseName = path.basename(activeFilePath, path.extname(activeFilePath)) || 'solution';
-        const filename = generateFilename(baseName, config.programmingLanguage);
-
-        const fallbackDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
-        const destDir = resolveDestinationDirectory(config.destinationDirectory, fallbackDir);
-
-        const savedPath = saveToFile(destDir, filename, solution);
-
-        vscode.window.showInformationMessage(`Algo Solve: Solution saved to ${savedPath}`);
-      } catch (err) {
-        logError('Failed to solve algorithm', err);
-        const message = err instanceof Error ? err.message : String(err);
-        vscode.window.showErrorMessage(`Algo Solve: ${message}`);
-      }
+  try {
+    if (config.showNotifications) {
+      await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: 'Algo Solve: Solving with Ollama...',
+          cancellable: false,
+        },
+        async (progress) => runSolve(config, progress)
+      );
+      return;
     }
-  );
+
+    await runSolve(config);
+  } catch (err) {
+    logError('Failed to solve algorithm', err);
+
+    if (config.showNotifications) {
+      await vscode.window.showErrorMessage(getNotificationErrorMessage(err));
+    }
+  }
 }

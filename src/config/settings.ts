@@ -7,6 +7,7 @@ export interface AlgoSolveConfig {
   ollamaEndpoint: string;
   prompt: string;
   requestTimeout: number;
+  showNotifications: boolean;
 }
 
 const DEFAULT_PROMPT =
@@ -22,5 +23,6 @@ export function getConfiguration(): AlgoSolveConfig {
     ollamaEndpoint: config.get<string>('ollamaEndpoint', 'http://localhost:11434'),
     prompt: config.get<string>('prompt', DEFAULT_PROMPT),
     requestTimeout: config.get<number>('requestTimeout', 60000),
+    showNotifications: config.get<boolean>('showNotifications', false),
   };
 }
