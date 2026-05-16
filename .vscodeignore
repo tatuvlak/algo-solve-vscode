@@ -1,5 +1,7 @@
 .vscode/**
 .vscode-test/**
+eslint.config.cjs
+scripts/**
 src/**
 .gitignore
 .vscodeignore
@@ -7,3 +9,5 @@ src/**
 node_modules/**
 out/**
 !dist/**
+dist/**/*.map
+tsconfig.json

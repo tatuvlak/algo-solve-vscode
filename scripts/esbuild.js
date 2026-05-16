@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 const esbuild = require('esbuild');
 
@@ -12,12 +13,14 @@ const config = {
   format: 'cjs',
   platform: 'node',
   target: ['es2020'],
-  sourcemap: true,
+  sourcemap: !isProduction,
   minify: isProduction,
   logLevel: 'info',
 };
 
 async function main() {
+  fs.rmSync(path.dirname(config.outfile), { recursive: true, force: true });
+
   if (isWatch) {
     const context = await esbuild.context(config);
     await context.watch();
