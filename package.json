@@ -4,6 +4,11 @@
   "description": "Solve algorithmic tasks using local Ollama models",
   "version": "0.1.0",
   "publisher": "tatuvlak",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tatuvlak/algo-solve-vscode.git"
+  },
   "engines": {
     "vscode": "^1.80.0"
   },
