@@ -66,7 +66,8 @@ async function runSolve(config: ReturnType<typeof getConfiguration>, progress?: 
   const baseName = path.basename(activeFilePath, path.extname(activeFilePath)) || 'solution';
   const filename = generateFilename(baseName, config.programmingLanguage);
 
-  const fallbackDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+  const activeWorkspaceDir = vscode.workspace.getWorkspaceFolder?.(editor.document.uri)?.uri.fsPath;
+  const fallbackDir = activeWorkspaceDir ?? path.dirname(activeFilePath);
   const destDir = resolveDestinationDirectory(config.destinationDirectory, fallbackDir);
 
   const savedPath = saveToFile(destDir, filename, solution);
