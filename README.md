@@ -91,13 +91,21 @@ Add these to your VS Code `settings.json`:
 ```bash
 npm install
 npm run compile
+npm run watch   # live bundle rebuilds during development
 npm test        # unit tests (no VS Code required)
 npm run lint
 ```
 
+`npm run compile` creates the production extension bundle at `dist/extension.js` and recompiles the test files under `out/`.
+
 To run the full VS Code integration tests:
 ```bash
 npm run test:vscode
+```
+
+To package the extension:
+```bash
+npx @vscode/vsce package
 ```
 
 ## License

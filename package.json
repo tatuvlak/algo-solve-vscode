@@ -14,7 +14,7 @@
   },
   "categories": ["Other"],
   "activationEvents": ["onCommand:algoSolve.solve", "onCommand:algoSolve.refine"],
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
@@ -86,11 +86,12 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run build",
+    "build": "node ./scripts/esbuild.js --production",
+    "compile": "npm run build && tsc -p ./",
+    "watch": "node ./scripts/esbuild.js --watch",
     "pretest": "npm run compile",
-    "lint": "eslint src --ext ts",
+    "lint": "eslint \"src/**/*.ts\"",
     "test": "npx mocha --ui tdd out/test/suite/*.test.js",
     "test:vscode": "node ./out/test/runTest.js"
   },
@@ -102,10 +103,11 @@
     "@types/node": "20.x",
     "@types/sinon": "^17.0.3",
     "@types/vscode": "^1.80.0",
-    "@typescript-eslint/eslint-plugin": "^7.11.0",
-    "@typescript-eslint/parser": "^7.11.0",
+    "@typescript-eslint/eslint-plugin": "^8.59.3",
+    "@typescript-eslint/parser": "^8.59.3",
     "@vscode/test-electron": "^2.4.0",
-    "eslint": "^8.57.0",
+    "esbuild": "^0.28.0",
+    "eslint": "^9.39.4",
     "mocha": "^11.7.5",
     "sinon": "^18.0.0",
     "typescript": "^5.4.5"
