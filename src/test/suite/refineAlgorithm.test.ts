@@ -295,7 +295,6 @@ suite('refineAlgorithm', () => {
       fileService: {
         saveToFile,
         generateFilename: () => 'solution_refined.py',
-        resolveDestinationDirectory: () => '/workspace/out',
       },
       ollamaService: { queryOllama },
       promptBuilder: { buildRefinePrompt },
@@ -312,6 +311,7 @@ suite('refineAlgorithm', () => {
     assert.strictEqual(showInformationMessage.calls.length, 0);
     assert.strictEqual(queryOllama.calls.length, 1);
     assert.strictEqual(saveToFile.calls.length, 1);
+    assert.strictEqual(saveToFile.calls[0].args[0], '/workspace/out');
     assert.strictEqual(logError.calls.length, 0);
   });
 
@@ -376,7 +376,6 @@ suite('refineAlgorithm', () => {
       fileService: {
         saveToFile,
         generateFilename: () => 'solution_refined.py',
-        resolveDestinationDirectory: () => '/workspace/out',
       },
       ollamaService: { queryOllama },
       promptBuilder: { buildRefinePrompt },
@@ -461,7 +460,6 @@ suite('refineAlgorithm', () => {
       fileService: {
         saveToFile: createMockFunction(() => '/workspace/out/solution_refined.py'),
         generateFilename: () => 'solution_refined.py',
-        resolveDestinationDirectory: () => '/workspace/out',
       },
       ollamaService: { queryOllama },
       promptBuilder: { buildRefinePrompt },

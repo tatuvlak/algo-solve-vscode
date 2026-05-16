@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { getConfiguration, LAST_SAVED_PATH_KEY } from '../config/settings';
-import { saveToFile, generateFilename, resolveDestinationDirectory } from '../services/fileService';
+import { saveToFile, generateFilename } from '../services/fileService';
 import { queryOllama } from '../services/ollamaService';
 import { buildRefinePrompt } from '../utils/promptBuilder';
 import { log, logError } from '../utils/logger';
@@ -69,8 +69,7 @@ async function runRefine(
   const baseName = path.basename(lastSavedPath, path.extname(lastSavedPath)) || 'solution';
   const filename = generateFilename(`${baseName}_refined`, config.programmingLanguage);
 
-  const fallbackDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
-  const destDir = resolveDestinationDirectory(config.destinationDirectory, fallbackDir);
+  const destDir = path.dirname(lastSavedPath);
 
   const savedPath = saveToFile(destDir, filename, refined);
 
