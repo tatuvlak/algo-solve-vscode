@@ -370,6 +370,12 @@ suite('solveAlgorithm', () => {
     const log = createMockFunction<[string], void>();
     const logError = createMockFunction<[string, unknown], void>();
     const documentUri = { fsPath: '/workspace-b/problem.md' };
+    const context = {
+      workspaceState: {
+        get: createMockFunction<[string], string | undefined>(() => undefined),
+        update: createMockFunction<[string, unknown], Promise<void>>(() => Promise.resolve()),
+      },
+    };
 
     const { solveAlgorithm } = loadMockedSolveAlgorithmModule({
       vscode: {
@@ -416,7 +422,7 @@ suite('solveAlgorithm', () => {
       logger: { log, logError },
     });
 
-    await solveAlgorithm();
+    await solveAlgorithm(context as never);
 
     assert.strictEqual(resolveDestinationDirectory.calls.length, 1);
     assert.deepStrictEqual(resolveDestinationDirectory.calls[0].args, ['', '/workspace-b']);
