@@ -8,13 +8,17 @@
     "vscode": "^1.80.0"
   },
   "categories": ["Other"],
-  "activationEvents": ["onCommand:algoSolve.solve"],
+  "activationEvents": ["onCommand:algoSolve.solve", "onCommand:algoSolve.refine"],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "algoSolve.solve",
         "title": "Solve Algorithm with Ollama"
+      },
+      {
+        "command": "algoSolve.refine",
+        "title": "Refine Solution with Ollama"
       }
     ],
     "keybindings": [
@@ -23,6 +27,11 @@
         "key": "ctrl+shift+s",
         "mac": "cmd+shift+s",
         "when": "editorTextFocus"
+      },
+      {
+        "command": "algoSolve.refine",
+        "key": "ctrl+alt+r",
+        "mac": "cmd+alt+r"
       }
     ],
     "configuration": {
@@ -52,6 +61,11 @@
           "type": "string",
           "default": "You are an expert algorithm solver. Analyze the following problem description and provide a complete, working solution in {language}.\n\nProblem:\n{content}\n\nRequirements:\n- Provide clean, well-commented code\n- Include proper error handling\n- Optimize for time and space complexity where possible\n- Return only the code implementation\n\nSolution:",
           "description": "Prompt template (use {language} and {content} placeholders)"
+        },
+        "algoSolve.refinePrompt": {
+          "type": "string",
+          "default": "You are an expert programmer. Below is a solution in {language}.\n\n{context}\n\nUser request: {userPrompt}\n\nProvide an updated version of the solution that addresses the user's request. Return only the code.",
+          "description": "Prompt template for refinements (use {language}, {context}, and {userPrompt} placeholders)"
         },
         "algoSolve.requestTimeout": {
           "type": "number",

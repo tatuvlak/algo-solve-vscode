@@ -86,6 +86,14 @@ suite('solveAlgorithm', () => {
     const buildPrompt = createMockFunction<[string, string, string], string>(() => 'prompt');
     const log = createMockFunction<[string], void>();
     const logError = createMockFunction<[string, unknown], void>();
+    const workspaceStateUpdate = createMockFunction<[string, unknown], Promise<void>>(() => Promise.resolve());
+
+    const context = {
+      workspaceState: {
+        get: createMockFunction<[string], string | undefined>(() => undefined),
+        update: workspaceStateUpdate,
+      },
+    };
 
     const { solveAlgorithm } = loadMockedSolveAlgorithmModule({
       vscode: {
@@ -116,9 +124,11 @@ suite('solveAlgorithm', () => {
           ollamaModel: 'codellama',
           ollamaEndpoint: 'http://localhost:11434',
           prompt: 'template',
+          refinePrompt: 'refine template',
           requestTimeout: 60000,
           showNotifications: false,
         }),
+        LAST_SAVED_PATH_KEY: 'algoSolve.lastSavedPath',
       },
       fileService: {
         saveToFile,
@@ -130,7 +140,7 @@ suite('solveAlgorithm', () => {
       logger: { log, logError },
     });
 
-    await solveAlgorithm();
+    await solveAlgorithm(context as never);
 
     assert.strictEqual(withProgress.calls.length, 0);
     assert.strictEqual(showInformationMessage.calls.length, 0);
@@ -138,6 +148,11 @@ suite('solveAlgorithm', () => {
     assert.strictEqual(showErrorMessage.calls.length, 0);
     assert.strictEqual(queryOllama.calls.length, 1);
     assert.strictEqual(saveToFile.calls.length, 1);
+    assert.strictEqual(workspaceStateUpdate.calls.length, 1);
+    assert.deepStrictEqual(workspaceStateUpdate.calls[0].args, [
+      'algoSolve.lastSavedPath',
+      '/workspace/out/solution.py',
+    ]);
     assert.strictEqual(logError.calls.length, 0);
   });
 
@@ -173,6 +188,13 @@ suite('solveAlgorithm', () => {
     const log = createMockFunction<[string], void>();
     const logError = createMockFunction<[string, unknown], void>();
 
+    const context = {
+      workspaceState: {
+        get: createMockFunction<[string], string | undefined>(() => undefined),
+        update: createMockFunction<[string, unknown], Promise<void>>(() => Promise.resolve()),
+      },
+    };
+
     const { solveAlgorithm } = loadMockedSolveAlgorithmModule({
       vscode: {
         window: {
@@ -202,9 +224,11 @@ suite('solveAlgorithm', () => {
           ollamaModel: 'codellama',
           ollamaEndpoint: 'http://localhost:11434',
           prompt: 'template',
+          refinePrompt: 'refine template',
           requestTimeout: 60000,
           showNotifications: true,
         }),
+        LAST_SAVED_PATH_KEY: 'algoSolve.lastSavedPath',
       },
       fileService: {
         saveToFile,
@@ -216,7 +240,7 @@ suite('solveAlgorithm', () => {
       logger: { log, logError },
     });
 
-    await solveAlgorithm();
+    await solveAlgorithm(context as never);
 
     assert.strictEqual(withProgress.calls.length, 1);
     assert.deepStrictEqual(progressReports, [
@@ -260,6 +284,14 @@ suite('solveAlgorithm', () => {
     const buildPrompt = createMockFunction<[string, string, string], string>(() => 'prompt');
     const log = createMockFunction<[string], void>();
     const logError = createMockFunction<[string, unknown], void>();
+    const workspaceStateUpdate = createMockFunction<[string, unknown], Promise<void>>(() => Promise.resolve());
+
+    const context = {
+      workspaceState: {
+        get: createMockFunction<[string], string | undefined>(() => undefined),
+        update: workspaceStateUpdate,
+      },
+    };
 
     const { solveAlgorithm } = loadMockedSolveAlgorithmModule({
       vscode: {
@@ -290,9 +322,11 @@ suite('solveAlgorithm', () => {
           ollamaModel: 'codellama',
           ollamaEndpoint: 'http://localhost:11434',
           prompt: 'template',
+          refinePrompt: 'refine template',
           requestTimeout: 60000,
           showNotifications: true,
         }),
+        LAST_SAVED_PATH_KEY: 'algoSolve.lastSavedPath',
       },
       fileService: {
         saveToFile,
@@ -304,7 +338,7 @@ suite('solveAlgorithm', () => {
       logger: { log, logError },
     });
 
-    await solveAlgorithm();
+    await solveAlgorithm(context as never);
 
     assert.deepStrictEqual(progressReports, [
       { message: 'Reading active editor content...' },
