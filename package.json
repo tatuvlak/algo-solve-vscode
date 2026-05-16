@@ -30,8 +30,8 @@
       },
       {
         "command": "algoSolve.refine",
-        "key": "ctrl+shift+r",
-        "mac": "cmd+shift+r"
+        "key": "ctrl+alt+r",
+        "mac": "cmd+alt+r"
       }
     ],
     "configuration": {

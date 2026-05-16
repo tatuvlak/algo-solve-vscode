@@ -66,7 +66,7 @@ async function runRefine(
   );
 
   progress?.report({ message: 'Writing refined solution file...' });
-  const baseName = path.basename(lastSavedPath, path.extname(lastSavedPath)) || 'refined';
+  const baseName = path.basename(lastSavedPath, path.extname(lastSavedPath)) || 'solution';
   const filename = generateFilename(`${baseName}_refined`, config.programmingLanguage);
 
   const fallbackDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
