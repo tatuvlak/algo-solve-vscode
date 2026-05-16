@@ -31,7 +31,7 @@
         "algoSolve.destinationDirectory": {
           "type": "string",
           "default": "",
-          "description": "Directory where solutions will be saved (empty = current working directory)"
+          "description": "Directory where solutions will be saved (empty = active file workspace folder)"
         },
         "algoSolve.programmingLanguage": {
           "type": "string",

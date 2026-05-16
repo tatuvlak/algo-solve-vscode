@@ -92,6 +92,7 @@ suite('solveAlgorithm', () => {
         window: {
           activeTextEditor: {
             document: {
+              uri: { fsPath: '/workspace/problem.md' },
               fileName: '/workspace/problem.md',
               getText: () => 'two sum',
             },
@@ -177,6 +178,7 @@ suite('solveAlgorithm', () => {
         window: {
           activeTextEditor: {
             document: {
+              uri: { fsPath: '/workspace/problem.md' },
               fileName: '/workspace/problem.md',
               getText: () => 'two sum',
             },
@@ -264,6 +266,7 @@ suite('solveAlgorithm', () => {
         window: {
           activeTextEditor: {
             document: {
+              uri: { fsPath: '/workspace/problem.md' },
               fileName: '/workspace/problem.md',
               getText: () => 'two sum',
             },
@@ -317,5 +320,71 @@ suite('solveAlgorithm', () => {
     assert.strictEqual(showWarningMessage.calls.length, 0);
     assert.strictEqual(showErrorMessage.calls.length, 0);
     assert.strictEqual(logError.calls.length, 0);
+  });
+
+  test('uses active file workspace folder as fallback destination', async () => {
+    const showInformationMessage = createMockFunction<[string], Promise<void>>(() => Promise.resolve());
+    const showWarningMessage = createMockFunction<[string], Promise<void>>(() => Promise.resolve());
+    const showErrorMessage = createMockFunction<[string], Promise<void>>(() => Promise.resolve());
+    const withProgress = createMockFunction(() => Promise.resolve());
+    const queryOllama = createMockFunction<[string, string, string, number], Promise<string>>(() =>
+      Promise.resolve('print("ok")')
+    );
+    const saveToFile = createMockFunction<[string, string, string], string>(() => '/workspace-b/out/solution.py');
+    const resolveDestinationDirectory = createMockFunction<[string, string], string>(() => '/workspace-b/out');
+    const buildPrompt = createMockFunction<[string, string, string], string>(() => 'prompt');
+    const log = createMockFunction<[string], void>();
+    const logError = createMockFunction<[string, unknown], void>();
+    const documentUri = { fsPath: '/workspace-b/problem.md' };
+
+    const { solveAlgorithm } = loadMockedSolveAlgorithmModule({
+      vscode: {
+        window: {
+          activeTextEditor: {
+            document: {
+              uri: documentUri,
+              fileName: '/workspace-b/problem.md',
+              getText: () => 'two sum',
+            },
+          },
+          showInformationMessage,
+          showWarningMessage,
+          showErrorMessage,
+          withProgress,
+        },
+        workspace: {
+          workspaceFolders: [{ uri: { fsPath: '/workspace-a' } }, { uri: { fsPath: '/workspace-b' } }],
+          getWorkspaceFolder: (uri: { fsPath: string }) =>
+            uri.fsPath.startsWith('/workspace-b') ? { uri: { fsPath: '/workspace-b' } } : undefined,
+        },
+        ProgressLocation: {
+          Notification: 'notification',
+        },
+      },
+      settings: {
+        getConfiguration: () => ({
+          destinationDirectory: '',
+          programmingLanguage: 'python',
+          ollamaModel: 'codellama',
+          ollamaEndpoint: 'http://localhost:11434',
+          prompt: 'template',
+          requestTimeout: 60000,
+          showNotifications: false,
+        }),
+      },
+      fileService: {
+        saveToFile,
+        generateFilename: () => 'solution.py',
+        resolveDestinationDirectory,
+      },
+      ollamaService: { queryOllama },
+      promptBuilder: { buildPrompt },
+      logger: { log, logError },
+    });
+
+    await solveAlgorithm();
+
+    assert.strictEqual(resolveDestinationDirectory.calls.length, 1);
+    assert.deepStrictEqual(resolveDestinationDirectory.calls[0].args, ['', '/workspace-b']);
   });
 });
