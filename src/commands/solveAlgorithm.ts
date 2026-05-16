@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { getConfiguration } from '../config/settings';
+import { getConfiguration, LAST_SAVED_PATH_KEY } from '../config/settings';
 import { saveToFile, generateFilename, resolveDestinationDirectory } from '../services/fileService';
 import { queryOllama } from '../services/ollamaService';
 import { buildPrompt } from '../utils/promptBuilder';
@@ -35,7 +35,11 @@ async function handleWarningMessage(showNotifications: boolean, message: string)
   }
 }
 
-async function runSolve(config: ReturnType<typeof getConfiguration>, progress?: ProgressHandle): Promise<void> {
+async function runSolve(
+  config: ReturnType<typeof getConfiguration>,
+  context: vscode.ExtensionContext,
+  progress?: ProgressHandle
+): Promise<void> {
   progress?.report({ message: 'Reading active editor content...' });
 
   const editor = vscode.window.activeTextEditor;
@@ -70,13 +74,14 @@ async function runSolve(config: ReturnType<typeof getConfiguration>, progress?: 
   const destDir = resolveDestinationDirectory(config.destinationDirectory, fallbackDir);
 
   const savedPath = saveToFile(destDir, filename, solution);
+  await context.workspaceState.update(LAST_SAVED_PATH_KEY, savedPath);
 
   if (config.showNotifications) {
     await vscode.window.showInformationMessage(`Algo Solve: solution saved to ${savedPath}`);
   }
 }
 
-export async function solveAlgorithm(): Promise<void> {
+export async function solveAlgorithm(context: vscode.ExtensionContext): Promise<void> {
   const config = getConfiguration();
 
   log('Starting algorithm solve command');
@@ -90,12 +95,12 @@ export async function solveAlgorithm(): Promise<void> {
           title: 'Algo Solve: Solving with Ollama...',
           cancellable: false,
         },
-        async (progress) => runSolve(config, progress)
+        async (progress) => runSolve(config, context, progress)
       );
       return;
     }
 
-    await runSolve(config);
+    await runSolve(config, context);
   } catch (err) {
     logError('Failed to solve algorithm', err);
 
