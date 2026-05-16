@@ -8,7 +8,6 @@ let outputChannel: OutputChannel | undefined;
 function getChannel(): OutputChannel {
   if (!outputChannel) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const vscode = require('vscode') as typeof import('vscode');
       outputChannel = vscode.window.createOutputChannel('Ollama Algorithm Solver');
     } catch {
