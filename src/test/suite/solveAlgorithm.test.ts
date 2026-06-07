@@ -121,6 +121,8 @@ suite('solveAlgorithm', () => {
         getConfiguration: () => ({
           destinationDirectory: '',
           programmingLanguage: 'python',
+          outputFileBaseName: '',
+          refinedOutputFileBaseName: '',
           ollamaModel: 'codellama',
           ollamaEndpoint: 'http://localhost:11434',
           prompt: 'template',
@@ -221,6 +223,8 @@ suite('solveAlgorithm', () => {
         getConfiguration: () => ({
           destinationDirectory: '',
           programmingLanguage: 'python',
+          outputFileBaseName: '',
+          refinedOutputFileBaseName: '',
           ollamaModel: 'codellama',
           ollamaEndpoint: 'http://localhost:11434',
           prompt: 'template',
@@ -319,6 +323,8 @@ suite('solveAlgorithm', () => {
         getConfiguration: () => ({
           destinationDirectory: '',
           programmingLanguage: 'python',
+          outputFileBaseName: '',
+          refinedOutputFileBaseName: '',
           ollamaModel: 'codellama',
           ollamaEndpoint: 'http://localhost:11434',
           prompt: 'template',
@@ -405,6 +411,8 @@ suite('solveAlgorithm', () => {
         getConfiguration: () => ({
           destinationDirectory: '',
           programmingLanguage: 'python',
+          outputFileBaseName: '',
+          refinedOutputFileBaseName: '',
           ollamaModel: 'codellama',
           ollamaEndpoint: 'http://localhost:11434',
           prompt: 'template',

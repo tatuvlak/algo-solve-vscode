@@ -58,9 +58,6 @@ function loadMockedRefineAlgorithmModule(
     if (request === '../utils/logger') {
       return mocks.logger;
     }
-    if (request === 'fs') {
-      return mocks.fs;
-    }
 
     return originalLoad(request, parent, isMain);
   };
@@ -76,13 +73,38 @@ function makeBaseConfig(overrides: Record<string, unknown> = {}) {
   return {
     destinationDirectory: '',
     programmingLanguage: 'python',
+    outputFileBaseName: '',
     ollamaModel: 'codellama',
     ollamaEndpoint: 'http://localhost:11434',
     prompt: 'template',
-    refinePrompt: 'Refine {language}: {context} -> {userPrompt}',
+    refinePrompt: 'Refine {language}: {instruction} :: {codeBody}',
     requestTimeout: 60000,
     showNotifications: false,
     ...overrides,
+  };
+}
+
+function makeVscodeBase(activeEditor: unknown): any {
+  return {
+    window: {
+      activeTextEditor: activeEditor,
+      showInputBox: createMockFunction<[unknown], Promise<string | undefined>>(() =>
+        Promise.resolve('add type hints')
+      ),
+      showWarningMessage: createMockFunction<[string], Promise<void>>(() => Promise.resolve()),
+      showInformationMessage: createMockFunction<[string], Promise<void>>(() => Promise.resolve()),
+      showErrorMessage: createMockFunction<[string], Promise<void>>(() => Promise.resolve()),
+      withProgress: createMockFunction(() => Promise.resolve()),
+    },
+    workspace: {
+      workspaceFolders: [{ uri: { fsPath: '/workspace' } }],
+      getWorkspaceFolder: (uri: { fsPath: string }) =>
+        uri.fsPath.startsWith('/workspace') ? { uri: { fsPath: '/workspace' } } : undefined,
+    },
+    Uri: {
+      file: (filePath: string) => ({ fsPath: filePath }),
+    },
+    ProgressLocation: { Notification: 'notification' },
   };
 }
 
@@ -91,34 +113,16 @@ suite('refineAlgorithm', () => {
     delete require.cache[require.resolve('../../commands/refineAlgorithm')];
   });
 
-  test('shows warning and returns when no previous solution exists', async () => {
+  test('shows warning and returns when no active editor exists', async () => {
     const showWarningMessage = createMockFunction<[string], Promise<void>>(() => Promise.resolve());
-    const showInputBox = createMockFunction<[unknown], Promise<string | undefined>>(() =>
-      Promise.resolve('add type hints')
-    );
 
-    const context = {
-      workspaceState: {
-        get: createMockFunction<[string], string | undefined>(() => undefined),
-        update: createMockFunction<[string, unknown], Promise<void>>(() => Promise.resolve()),
-      },
-    };
+    const vscodeMock = makeVscodeBase(undefined);
+    vscodeMock.window.showWarningMessage = showWarningMessage;
 
     const { refineAlgorithm } = loadMockedRefineAlgorithmModule({
-      vscode: {
-        window: {
-          showWarningMessage,
-          showInputBox,
-          showInformationMessage: createMockFunction(() => Promise.resolve()),
-          showErrorMessage: createMockFunction(() => Promise.resolve()),
-          withProgress: createMockFunction(() => Promise.resolve()),
-        },
-        workspace: { workspaceFolders: [] },
-        ProgressLocation: { Notification: 'notification' },
-      },
+      vscode: vscodeMock,
       settings: {
         getConfiguration: () => makeBaseConfig({ showNotifications: true }),
-        LAST_SAVED_PATH_KEY: 'algoSolve.lastSavedPath',
       },
       fileService: {},
       ollamaService: {},
@@ -127,16 +131,12 @@ suite('refineAlgorithm', () => {
         log: createMockFunction(),
         logError: createMockFunction(),
       },
-      fs: {},
     });
 
-    await refineAlgorithm(context as never);
+    await refineAlgorithm({} as never);
 
     assert.strictEqual(showWarningMessage.calls.length, 1);
-    assert.ok(
-      (showWarningMessage.calls[0].args[0] as string).includes('No previous solution found')
-    );
-    assert.strictEqual(showInputBox.calls.length, 0);
+    assert.ok((showWarningMessage.calls[0].args[0] as string).includes('No active editor found'));
   });
 
   test('returns early when user cancels the input box', async () => {
@@ -147,30 +147,18 @@ suite('refineAlgorithm', () => {
       Promise.resolve('refined')
     );
 
-    const context = {
-      workspaceState: {
-        get: createMockFunction<[string], string | undefined>(
-          () => '/workspace/out/solution.py'
-        ),
-        update: createMockFunction<[string, unknown], Promise<void>>(() => Promise.resolve()),
+    const vscodeMock = makeVscodeBase({
+      document: {
+        fileName: '/workspace/out/solution_v1.py',
+        getText: () => '# add type hints\nprint("hi")',
       },
-    };
+    });
+    vscodeMock.window.showInputBox = showInputBox;
 
     const { refineAlgorithm } = loadMockedRefineAlgorithmModule({
-      vscode: {
-        window: {
-          showInputBox,
-          showWarningMessage: createMockFunction(() => Promise.resolve()),
-          showInformationMessage: createMockFunction(() => Promise.resolve()),
-          showErrorMessage: createMockFunction(() => Promise.resolve()),
-          withProgress: createMockFunction(() => Promise.resolve()),
-        },
-        workspace: { workspaceFolders: [] },
-        ProgressLocation: { Notification: 'notification' },
-      },
+      vscode: vscodeMock,
       settings: {
         getConfiguration: () => makeBaseConfig(),
-        LAST_SAVED_PATH_KEY: 'algoSolve.lastSavedPath',
       },
       fileService: {},
       ollamaService: { queryOllama },
@@ -179,13 +167,9 @@ suite('refineAlgorithm', () => {
         log: createMockFunction(),
         logError: createMockFunction(),
       },
-      fs: {
-        existsSync: createMockFunction(() => true),
-        readFileSync: createMockFunction(() => 'existing code'),
-      },
     });
 
-    await refineAlgorithm(context as never);
+    await refineAlgorithm({} as never);
 
     assert.strictEqual(showInputBox.calls.length, 1);
     assert.strictEqual(queryOllama.calls.length, 0);
@@ -200,30 +184,19 @@ suite('refineAlgorithm', () => {
       Promise.resolve('refined')
     );
 
-    const context = {
-      workspaceState: {
-        get: createMockFunction<[string], string | undefined>(
-          () => '/workspace/out/solution.py'
-        ),
-        update: createMockFunction<[string, unknown], Promise<void>>(() => Promise.resolve()),
+    const vscodeMock = makeVscodeBase({
+      document: {
+        fileName: '/workspace/out/solution_v1.py',
+        getText: () => '# add type hints\nprint("hi")',
       },
-    };
+    });
+    vscodeMock.window.showInputBox = showInputBox;
+    vscodeMock.window.showWarningMessage = showWarningMessage;
 
     const { refineAlgorithm } = loadMockedRefineAlgorithmModule({
-      vscode: {
-        window: {
-          showInputBox,
-          showWarningMessage,
-          showInformationMessage: createMockFunction(() => Promise.resolve()),
-          showErrorMessage: createMockFunction(() => Promise.resolve()),
-          withProgress: createMockFunction(() => Promise.resolve()),
-        },
-        workspace: { workspaceFolders: [] },
-        ProgressLocation: { Notification: 'notification' },
-      },
+      vscode: vscodeMock,
       settings: {
         getConfiguration: () => makeBaseConfig({ showNotifications: true }),
-        LAST_SAVED_PATH_KEY: 'algoSolve.lastSavedPath',
       },
       fileService: {},
       ollamaService: { queryOllama },
@@ -232,13 +205,9 @@ suite('refineAlgorithm', () => {
         log: createMockFunction(),
         logError: createMockFunction(),
       },
-      fs: {
-        existsSync: createMockFunction(() => true),
-        readFileSync: createMockFunction(() => 'existing code'),
-      },
     });
 
-    await refineAlgorithm(context as never);
+    await refineAlgorithm({} as never);
 
     assert.strictEqual(queryOllama.calls.length, 0);
     assert.strictEqual(showWarningMessage.calls.length, 1);
@@ -247,7 +216,7 @@ suite('refineAlgorithm', () => {
     );
   });
 
-  test('runs refinement silently when notifications are disabled', async () => {
+  test('accepts comment-only content and builds a prompt without code body', async () => {
     const showInputBox = createMockFunction<[unknown], Promise<string | undefined>>(() =>
       Promise.resolve('add type hints')
     );
@@ -255,7 +224,10 @@ suite('refineAlgorithm', () => {
       Promise.resolve('refined code')
     );
     const saveToFile = createMockFunction<[string, string, string], string>(
-      () => '/workspace/out/solution_refined.py'
+      () => '/workspace/out/solution_v2.py'
+    );
+    const generateFilename = createMockFunction<[string, string, { directory: string }], string>(
+      () => 'solution_v2.py'
     );
     const buildRefinePrompt = createMockFunction<[string, string, string, string], string>(
       () => 'refine prompt'
@@ -265,52 +237,47 @@ suite('refineAlgorithm', () => {
     const log = createMockFunction<[string], void>();
     const logError = createMockFunction<[string, unknown], void>();
 
-    const context = {
-      workspaceState: {
-        get: createMockFunction<[string], string | undefined>(
-          () => '/workspace/out/solution.py'
-        ),
-        update: createMockFunction<[string, unknown], Promise<void>>(() => Promise.resolve()),
+    const vscodeMock = makeVscodeBase({
+      document: {
+        fileName: '/workspace/out/solution_v1.py',
+        getText: () => '# add type hints\n# optimize memory',
       },
-    };
+    });
+    vscodeMock.window.showInputBox = showInputBox;
+    vscodeMock.window.showInformationMessage = showInformationMessage;
+    vscodeMock.window.withProgress = withProgress;
 
     const { refineAlgorithm } = loadMockedRefineAlgorithmModule({
-      vscode: {
-        window: {
-          showInputBox,
-          showInformationMessage,
-          showWarningMessage: createMockFunction(() => Promise.resolve()),
-          showErrorMessage: createMockFunction(() => Promise.resolve()),
-          withProgress,
-        },
-        workspace: {
-          workspaceFolders: [{ uri: { fsPath: '/workspace' } }],
-        },
-        ProgressLocation: { Notification: 'notification' },
-      },
+      vscode: vscodeMock,
       settings: {
         getConfiguration: () => makeBaseConfig(),
-        LAST_SAVED_PATH_KEY: 'algoSolve.lastSavedPath',
       },
       fileService: {
         saveToFile,
-        generateFilename: () => 'solution_refined.py',
+        generateFilename,
         resolveDestinationDirectory: () => '/workspace/out',
       },
       ollamaService: { queryOllama },
       promptBuilder: { buildRefinePrompt },
       logger: { log, logError },
-      fs: {
-        existsSync: createMockFunction(() => true),
-        readFileSync: createMockFunction(() => 'existing code'),
-      },
     });
 
-    await refineAlgorithm(context as never);
+    await refineAlgorithm({} as never);
 
-    assert.strictEqual(withProgress.calls.length, 0);
-    assert.strictEqual(showInformationMessage.calls.length, 0);
     assert.strictEqual(queryOllama.calls.length, 1);
+    assert.strictEqual(buildRefinePrompt.calls.length, 1);
+    assert.deepStrictEqual(buildRefinePrompt.calls[0].args, [
+      'Refine {language}: {instruction} :: {codeBody}',
+      'python',
+      'User request:\nadd type hints\n\nFile instruction from top comment:\nadd type hints\noptimize memory',
+      '',
+    ]);
+    assert.strictEqual(generateFilename.calls.length, 1);
+    assert.deepStrictEqual(generateFilename.calls[0].args, [
+      'solution',
+      'python',
+      { directory: '/workspace/out' },
+    ]);
     assert.strictEqual(saveToFile.calls.length, 1);
     assert.strictEqual(logError.calls.length, 0);
   });
@@ -338,7 +305,10 @@ suite('refineAlgorithm', () => {
       Promise.resolve('optimized code')
     );
     const saveToFile = createMockFunction<[string, string, string], string>(
-      () => '/workspace/out/solution_refined.py'
+      () => '/workspace/out/solution_v2.py'
+    );
+    const generateFilename = createMockFunction<[string, string, { directory: string }], string>(
+      () => 'solution_v2.py'
     );
     const buildRefinePrompt = createMockFunction<[string, string, string, string], string>(
       () => 'refine prompt'
@@ -346,52 +316,36 @@ suite('refineAlgorithm', () => {
     const log = createMockFunction<[string], void>();
     const logError = createMockFunction<[string, unknown], void>();
 
-    const context = {
-      workspaceState: {
-        get: createMockFunction<[string], string | undefined>(
-          () => '/workspace/out/solution.py'
-        ),
-        update: createMockFunction<[string, unknown], Promise<void>>(() => Promise.resolve()),
+    const vscodeMock = makeVscodeBase({
+      document: {
+        fileName: '/workspace/out/solution_v1.py',
+        getText: () => '# add type hints\n\nprint("hi")',
       },
-    };
+    });
+    vscodeMock.window.showInputBox = showInputBox;
+    vscodeMock.window.showInformationMessage = showInformationMessage;
+    vscodeMock.window.withProgress = withProgress;
 
     const { refineAlgorithm } = loadMockedRefineAlgorithmModule({
-      vscode: {
-        window: {
-          showInputBox,
-          showInformationMessage,
-          showWarningMessage: createMockFunction(() => Promise.resolve()),
-          showErrorMessage: createMockFunction(() => Promise.resolve()),
-          withProgress,
-        },
-        workspace: {
-          workspaceFolders: [{ uri: { fsPath: '/workspace' } }],
-        },
-        ProgressLocation: { Notification: 'notification' },
-      },
+      vscode: vscodeMock,
       settings: {
         getConfiguration: () => makeBaseConfig({ showNotifications: true }),
-        LAST_SAVED_PATH_KEY: 'algoSolve.lastSavedPath',
       },
       fileService: {
         saveToFile,
-        generateFilename: () => 'solution_refined.py',
+        generateFilename,
         resolveDestinationDirectory: () => '/workspace/out',
       },
       ollamaService: { queryOllama },
       promptBuilder: { buildRefinePrompt },
       logger: { log, logError },
-      fs: {
-        existsSync: createMockFunction(() => true),
-        readFileSync: createMockFunction(() => 'existing code'),
-      },
     });
 
-    await refineAlgorithm(context as never);
+    await refineAlgorithm({} as never);
 
     assert.strictEqual(withProgress.calls.length, 1);
     assert.deepStrictEqual(progressReports, [
-      { message: 'Reading previous solution...' },
+      { message: 'Reading active editor content...' },
       { message: 'Building prompt...' },
       { message: 'Calling Ollama HTTP API...' },
       { message: 'Writing refined solution file...' },
@@ -400,11 +354,23 @@ suite('refineAlgorithm', () => {
     assert.ok(
       (showInformationMessage.calls[0].args[0] as string).includes('refined solution saved to')
     );
+    assert.strictEqual(buildRefinePrompt.calls.length, 1);
+    assert.deepStrictEqual(buildRefinePrompt.calls[0].args, [
+      'Refine {language}: {instruction} :: {codeBody}',
+      'python',
+      'User request:\noptimize for memory\n\nFile instruction from top comment:\nadd type hints',
+      'print("hi")',
+    ]);
+    assert.strictEqual(generateFilename.calls.length, 1);
+    assert.deepStrictEqual(generateFilename.calls[0].args, [
+      'solution',
+      'python',
+      { directory: '/workspace/out' },
+    ]);
     assert.strictEqual(logError.calls.length, 0);
   });
 
   test('shows error notification when Ollama call fails', async () => {
-    const progressReports: Array<{ message?: string; increment?: number }> = [];
     const showInputBox = createMockFunction<[unknown], Promise<string | undefined>>(() =>
       Promise.resolve('add tests')
     );
@@ -417,8 +383,8 @@ suite('refineAlgorithm', () => {
       Promise<void>
     >((_, task) =>
       task({
-        report: (value) => {
-          progressReports.push(value);
+        report: () => {
+          /* noop */
         },
       })
     );
@@ -431,48 +397,32 @@ suite('refineAlgorithm', () => {
     const log = createMockFunction<[string], void>();
     const logError = createMockFunction<[string, unknown], void>();
 
-    const context = {
-      workspaceState: {
-        get: createMockFunction<[string], string | undefined>(
-          () => '/workspace/out/solution.py'
-        ),
-        update: createMockFunction<[string, unknown], Promise<void>>(() => Promise.resolve()),
+    const vscodeMock = makeVscodeBase({
+      document: {
+        fileName: '/workspace/out/solution_v1.py',
+        getText: () => '# add type hints\nprint("hi")',
       },
-    };
+    });
+    vscodeMock.window.showInputBox = showInputBox;
+    vscodeMock.window.showErrorMessage = showErrorMessage;
+    vscodeMock.window.withProgress = withProgress;
 
     const { refineAlgorithm } = loadMockedRefineAlgorithmModule({
-      vscode: {
-        window: {
-          showInputBox,
-          showErrorMessage,
-          showInformationMessage: createMockFunction(() => Promise.resolve()),
-          showWarningMessage: createMockFunction(() => Promise.resolve()),
-          withProgress,
-        },
-        workspace: {
-          workspaceFolders: [{ uri: { fsPath: '/workspace' } }],
-        },
-        ProgressLocation: { Notification: 'notification' },
-      },
+      vscode: vscodeMock,
       settings: {
         getConfiguration: () => makeBaseConfig({ showNotifications: true }),
-        LAST_SAVED_PATH_KEY: 'algoSolve.lastSavedPath',
       },
       fileService: {
-        saveToFile: createMockFunction(() => '/workspace/out/solution_refined.py'),
-        generateFilename: () => 'solution_refined.py',
+        saveToFile: createMockFunction(() => '/workspace/out/solution_v2.py'),
+        generateFilename: () => 'solution_v2.py',
         resolveDestinationDirectory: () => '/workspace/out',
       },
       ollamaService: { queryOllama },
       promptBuilder: { buildRefinePrompt },
       logger: { log, logError },
-      fs: {
-        existsSync: createMockFunction(() => true),
-        readFileSync: createMockFunction(() => 'existing code'),
-      },
     });
 
-    await refineAlgorithm(context as never);
+    await refineAlgorithm({} as never);
 
     assert.strictEqual(showErrorMessage.calls.length, 1);
     assert.strictEqual(

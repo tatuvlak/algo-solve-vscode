@@ -6,7 +6,9 @@ import {
   generateFilename,
   getExtensionForLanguage,
   resolveDestinationDirectory,
+  sanitizeBaseName,
   saveToFile,
+  stripMarkdownCodeFence,
 } from '../../services/fileService';
 
 suite('fileService', () => {
@@ -36,7 +38,7 @@ suite('fileService', () => {
   suite('generateFilename', () => {
     test('includes the base name in the filename', () => {
       const name = generateFilename('two-sum', 'python');
-      assert.ok(name.startsWith('two-sum_'), `Expected "two-sum_" prefix in "${name}"`);
+      assert.ok(name.startsWith('two-sum_v1'), `Expected "two-sum_v1" prefix in "${name}"`);
     });
 
     test('uses the correct extension', () => {
@@ -44,15 +46,36 @@ suite('fileService', () => {
       assert.ok(name.endsWith('.js'), `Expected .js extension in "${name}"`);
     });
 
-    test('includes a timestamp', () => {
-      const name = generateFilename('solution', 'python');
-      // timestamp format: YYYYMMDD_HHMMSS (part of ISO string)
-      assert.match(name, /\d{8}_\d{6}/);
+    test('includes the provided version suffix', () => {
+      const name = generateFilename('solution', 'python', { version: 2 });
+      assert.ok(name.endsWith('_v2.py'), `Expected _v2.py suffix in "${name}"`);
     });
 
     test('sanitizes special characters in base name', () => {
-      const name = generateFilename('my problem!@#', 'python');
+      const name = generateFilename('my problem!@#', 'python', 1);
       assert.match(name, /^[a-zA-Z0-9_\-.]+$/);
+    });
+
+    test('falls back to solution when base name sanitizes to empty', () => {
+      const name = generateFilename('!!!', 'python');
+      assert.strictEqual(name, 'solution_v1.py');
+    });
+
+    test('auto-increments version when file already exists in destination directory', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'algo-solve-version-test-'));
+      try {
+        fs.writeFileSync(path.join(tmpDir, 'solution_v1.py'), 'existing', 'utf8');
+        const name = generateFilename('solution', 'python', { directory: tmpDir });
+        assert.strictEqual(name, 'solution_v2.py');
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  suite('sanitizeBaseName', () => {
+    test('returns solution for empty sanitized input', () => {
+      assert.strictEqual(sanitizeBaseName('@@@'), 'solution');
     });
   });
 
@@ -69,7 +92,7 @@ suite('fileService', () => {
 
     test('returns resolved absolute path when configured', () => {
       const result = resolveDestinationDirectory('/tmp/solutions', '/fallback');
-      assert.strictEqual(result, '/tmp/solutions');
+      assert.strictEqual(result, path.resolve('/tmp/solutions'));
     });
   });
 
@@ -106,6 +129,29 @@ suite('fileService', () => {
       const filePath = saveToFile(tmpDir, '../evil.py', 'bad');
       assert.ok(filePath.startsWith(tmpDir), 'File should be inside tmpDir');
       assert.strictEqual(path.basename(filePath), 'evil.py');
+    });
+
+    test('strips surrounding markdown code fences before writing', () => {
+      const filePath = saveToFile(tmpDir, 'solution.py', '```python\nprint("hello")\n```');
+      assert.strictEqual(fs.readFileSync(filePath, 'utf8'), 'print("hello")');
+    });
+
+    test('keeps content unchanged when no surrounding fence exists', () => {
+      const filePath = saveToFile(tmpDir, 'solution.py', 'print("hello")\n```python\ninner\n```');
+      assert.strictEqual(
+        fs.readFileSync(filePath, 'utf8'),
+        'print("hello")\n```python\ninner\n```'
+      );
+    });
+  });
+
+  suite('stripMarkdownCodeFence', () => {
+    test('returns original content when not fenced', () => {
+      assert.strictEqual(stripMarkdownCodeFence('print("x")'), 'print("x")');
+    });
+
+    test('strips generic fenced block', () => {
+      assert.strictEqual(stripMarkdownCodeFence('```\nprint("x")\n```'), 'print("x")');
     });
   });
 });

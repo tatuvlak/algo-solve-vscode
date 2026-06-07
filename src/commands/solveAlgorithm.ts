@@ -67,12 +67,13 @@ async function runSolve(
 
   progress?.report({ message: 'Writing solution file...' });
   const activeFilePath = editor.document.fileName;
-  const baseName = path.basename(activeFilePath, path.extname(activeFilePath)) || 'solution';
-  const filename = generateFilename(baseName, config.programmingLanguage);
+  const derivedBaseName = path.basename(activeFilePath, path.extname(activeFilePath)) || 'solution';
+  const outputBaseName = config.outputFileBaseName.trim() || derivedBaseName;
 
   const activeWorkspaceDir = vscode.workspace.getWorkspaceFolder?.(editor.document.uri)?.uri.fsPath;
   const fallbackDir = activeWorkspaceDir ?? path.dirname(activeFilePath);
   const destDir = resolveDestinationDirectory(config.destinationDirectory, fallbackDir);
+  const filename = generateFilename(outputBaseName, config.programmingLanguage, { directory: destDir });
 
   const savedPath = saveToFile(destDir, filename, solution);
   await context.workspaceState.update(LAST_SAVED_PATH_KEY, savedPath);

@@ -1,10 +1,10 @@
-import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { getConfiguration, LAST_SAVED_PATH_KEY } from '../config/settings';
+import { getConfiguration } from '../config/settings';
 import { saveToFile, generateFilename, resolveDestinationDirectory } from '../services/fileService';
 import { queryOllama } from '../services/ollamaService';
 import { buildRefinePrompt } from '../utils/promptBuilder';
+import { parseRefineInput } from '../utils/refineInputParser';
 import { log, logError } from '../utils/logger';
 
 type ProgressHandle = Pick<vscode.Progress<{ message?: string; increment?: number }>, 'report'>;
@@ -38,24 +38,28 @@ async function handleWarningMessage(showNotifications: boolean, message: string)
 
 async function runRefine(
   config: ReturnType<typeof getConfiguration>,
-  lastSavedPath: string,
+  activeFilePath: string,
+  fileContext: string,
   userPrompt: string,
   progress?: ProgressHandle
 ): Promise<void> {
-  progress?.report({ message: 'Reading previous solution...' });
+  progress?.report({ message: 'Reading active editor content...' });
 
-  if (!fs.existsSync(lastSavedPath)) {
-    await handleWarningMessage(
-      config.showNotifications,
-      `Previous solution file not found: ${lastSavedPath}`
-    );
-    return;
-  }
-
-  const fileContext = fs.readFileSync(lastSavedPath, 'utf8');
+  const { instruction: fileInstruction, codeBody } = parseRefineInput(fileContext);
+  const combinedInstruction = [
+    `User request:\n${userPrompt.trim()}`,
+    fileInstruction.trim() ? `File instruction from top comment:\n${fileInstruction.trim()}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 
   progress?.report({ message: 'Building prompt...' });
-  const prompt = buildRefinePrompt(config.refinePrompt, config.programmingLanguage, fileContext, userPrompt);
+  const prompt = buildRefinePrompt(
+    config.refinePrompt,
+    config.programmingLanguage,
+    combinedInstruction,
+    codeBody
+  );
 
   progress?.report({ message: 'Calling Ollama HTTP API...' });
   const refined = await queryOllama(
@@ -66,11 +70,14 @@ async function runRefine(
   );
 
   progress?.report({ message: 'Writing refined solution file...' });
-  const baseName = path.basename(lastSavedPath, path.extname(lastSavedPath)) || 'solution';
-  const filename = generateFilename(`${baseName}_refined`, config.programmingLanguage);
+  const previousVersionedBase = path.basename(activeFilePath, path.extname(activeFilePath)) || 'solution';
+  const derivedBaseName = previousVersionedBase.replace(/_v\d+$/, '') || 'solution';
+  const outputBaseName = config.outputFileBaseName.trim() || derivedBaseName;
 
-  const fallbackDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+  const activeWorkspaceDir = vscode.workspace.getWorkspaceFolder?.(vscode.Uri.file(activeFilePath))?.uri.fsPath;
+  const fallbackDir = activeWorkspaceDir ?? path.dirname(activeFilePath);
   const destDir = resolveDestinationDirectory(config.destinationDirectory, fallbackDir);
+  const filename = generateFilename(outputBaseName, config.programmingLanguage, { directory: destDir });
 
   const savedPath = saveToFile(destDir, filename, refined);
 
@@ -79,19 +86,19 @@ async function runRefine(
   }
 }
 
-export async function refineAlgorithm(context: vscode.ExtensionContext): Promise<void> {
+export async function refineAlgorithm(_context: vscode.ExtensionContext): Promise<void> {
   const config = getConfiguration();
 
   log('Starting algorithm refinement command');
 
-  const lastSavedPath = context.workspaceState.get<string>(LAST_SAVED_PATH_KEY);
-  if (!lastSavedPath) {
-    await handleWarningMessage(
-      config.showNotifications,
-      'No previous solution found. Run "Solve Algorithm with Ollama" first.'
-    );
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    await handleWarningMessage(config.showNotifications, 'No active editor found. Open a file first.');
     return;
   }
+
+  const activeFilePath = editor.document.fileName;
+  const fileContext = editor.document.getText();
 
   const userPrompt = await vscode.window.showInputBox({
     prompt: 'Enter your refinement instruction for Ollama',
@@ -116,12 +123,12 @@ export async function refineAlgorithm(context: vscode.ExtensionContext): Promise
           title: 'Algo Solve: Refining with Ollama...',
           cancellable: false,
         },
-        async (progress) => runRefine(config, lastSavedPath, userPrompt, progress)
+        async (progress) => runRefine(config, activeFilePath, fileContext, userPrompt, progress)
       );
       return;
     }
 
-    await runRefine(config, lastSavedPath, userPrompt);
+    await runRefine(config, activeFilePath, fileContext, userPrompt);
   } catch (err) {
     logError('Failed to refine algorithm', err);
 

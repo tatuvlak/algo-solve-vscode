@@ -52,6 +52,11 @@
           "default": "python",
           "description": "Target programming language for solutions"
         },
+        "algoSolve.outputFileBaseName": {
+          "type": "string",
+          "default": "",
+          "description": "Override base name for generated solution files (empty = derive from active file name)"
+        },
         "algoSolve.ollamaModel": {
           "type": "string",
           "default": "codellama",
@@ -69,8 +74,8 @@
         },
         "algoSolve.refinePrompt": {
           "type": "string",
-          "default": "You are an expert programmer. Below is a solution in {language}.\n\n{context}\n\nUser request: {userPrompt}\n\nProvide an updated version of the solution that addresses the user's request. Return only the code.",
-          "description": "Prompt template for refinements (use {language}, {context}, and {userPrompt} placeholders)"
+          "default": "You are an expert programmer. Use the instruction below to refine the code in {language}.\n\nInstruction:\n{instruction}\n\nCode:\n{codeBody}\n\nRules:\n- Treat the instruction as the source of truth.\n- If the code section is empty, generate a complete solution from the instruction alone.\n- If both instruction and code are present, modify only what is needed to satisfy the instruction.\n- Return only the final code, with no explanation.",
+          "description": "Prompt template for refinements (use {language}, {instruction}, and {codeBody} placeholders; {context} is still supported as a legacy combined alias)"
         },
         "algoSolve.requestTimeout": {
           "type": "number",

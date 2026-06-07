@@ -28,15 +28,51 @@ export function getExtensionForLanguage(language: string): string {
   return LANGUAGE_EXTENSIONS[language.toLowerCase()] ?? language.toLowerCase();
 }
 
-export function generateFilename(baseName: string, language: string): string {
+export function sanitizeBaseName(baseName: string): string {
+  const sanitized = baseName
+    .replace(/[^a-zA-Z0-9_-]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+
+  return sanitized || 'solution';
+}
+
+export interface GenerateFilenameOptions {
+  version?: number;
+  directory?: string;
+}
+
+export function generateFilename(
+  baseName: string,
+  language: string,
+  options?: number | GenerateFilenameOptions
+): string {
   const ext = getExtensionForLanguage(language);
-  const timestamp = new Date()
-    .toISOString()
-    .replace(/[-:]/g, '')
-    .replace('T', '_')
-    .substring(0, 15);
-  const sanitized = baseName.replace(/[^a-zA-Z0-9_-]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
-  return `${sanitized}_${timestamp}.${ext}`;
+  const sanitized = sanitizeBaseName(baseName);
+
+  if (typeof options === 'number') {
+    return `${sanitized}_v${options}.${ext}`;
+  }
+
+  if (typeof options?.version === 'number') {
+    return `${sanitized}_v${options.version}.${ext}`;
+  }
+
+  const resolvedDir = options?.directory ? path.resolve(options.directory) : undefined;
+  let nextVersion = 1;
+
+  if (resolvedDir) {
+    while (true) {
+      const candidate = path.join(resolvedDir, `${sanitized}_v${nextVersion}.${ext}`);
+      if (!fs.existsSync(candidate)) {
+        break;
+      }
+
+      nextVersion += 1;
+    }
+  }
+
+  return `${sanitized}_v${nextVersion}.${ext}`;
 }
 
 export function resolveDestinationDirectory(configured: string, fallback: string): string {
@@ -54,6 +90,17 @@ export function resolveDestinationDirectory(configured: string, fallback: string
   return resolved;
 }
 
+export function stripMarkdownCodeFence(content: string): string {
+  const trimmed = content.trim();
+  const fencedMatch = trimmed.match(/^```[^\n]*\n([\s\S]*?)\n```$/);
+
+  if (!fencedMatch) {
+    return content;
+  }
+
+  return fencedMatch[1];
+}
+
 export function saveToFile(directory: string, filename: string, content: string): string {
   const safeName = path.basename(filename);
   const resolvedDir = path.resolve(directory);
@@ -69,7 +116,8 @@ export function saveToFile(directory: string, filename: string, content: string)
     log(`Created directory: ${resolvedDir}`);
   }
 
-  fs.writeFileSync(filePath, content, 'utf8');
+  const finalContent = stripMarkdownCodeFence(content);
+  fs.writeFileSync(filePath, finalContent, 'utf8');
   log(`Solution saved to: ${filePath}`);
   return filePath;
 }

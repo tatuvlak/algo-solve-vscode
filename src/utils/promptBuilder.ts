@@ -4,9 +4,17 @@ export function buildPrompt(template: string, language: string, content: string)
     .replace(/\{content\}/g, content);
 }
 
-export function buildRefinePrompt(template: string, language: string, context: string, userPrompt: string): string {
+export function buildRefinePrompt(
+  template: string,
+  language: string,
+  instruction: string,
+  codeBody: string
+): string {
+  const combinedContext = [instruction.trim(), codeBody.trim()].filter(Boolean).join('\n\n');
+
   return template
     .replace(/\{language\}/g, language)
-    .replace(/\{context\}/g, context)
-    .replace(/\{userPrompt\}/g, userPrompt);
+    .replace(/\{instruction\}/g, instruction)
+    .replace(/\{codeBody\}/g, codeBody)
+    .replace(/\{context\}/g, combinedContext);
 }
